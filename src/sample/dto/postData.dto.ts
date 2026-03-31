@@ -1,0 +1,1 @@
+export type ImportSampleData = {name: string, age: number}
