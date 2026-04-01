@@ -11,6 +11,7 @@ import {
 
 import { User } from 'src/user/entities/user.entity';
 import { Channel } from 'src/channel/entities/channel.entity';
+import { MessageReaction } from './message-reaction.entity';
 
 @Entity('messages')
 export class Message {
@@ -20,17 +21,15 @@ export class Message {
     @Column()
     content: string;
 
-    // ✅ sender relation
     @ManyToOne(() => User, { eager: true, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'senderId' })
     sender: User;
 
-    // ✅ channel relation
     @ManyToOne(() => Channel, { nullable: true, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'channelId' })
     channel: Channel;
 
-    // 🔥 THREAD: parent message
+    // THREAD: self-referential parent
     @ManyToOne(() => Message, (message) => message.replies, {
         nullable: true,
         onDelete: 'CASCADE',
@@ -41,11 +40,8 @@ export class Message {
     @Column({ nullable: true })
     parentId: string;
 
-    // 🔥 THREAD: replies
-    @OneToMany(() => Message, (message) => message.parent) 
+    @OneToMany(() => Message, (message) => message.parent)
     replies: Message[];
-
-
 
     @Column({ nullable: true })
     threadRootId: string;
@@ -55,11 +51,14 @@ export class Message {
 
     @Column({ nullable: true })
     lastReplyAt: Date;
-    
+
+    // One message can have many reaction rows (one per emoji type)
+    @OneToMany(() => MessageReaction, (r) => r.message, { nullable: true, eager: false })
+    reactions: MessageReaction[];
+
     @CreateDateColumn()
     createdAt: Date;
 
     @UpdateDateColumn()
     updatedAt: Date;
-
 }

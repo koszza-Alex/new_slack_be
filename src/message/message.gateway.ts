@@ -32,10 +32,8 @@ export class MessageGateway {
     const message = await this.presenter.sendMessage(payload);
 
     if (payload.parentId) {
-      // Emit the new thread reply to all clients in the channel
       this.server.to(payload.channelId).emit('new_thread_message', message);
 
-      // Also emit updated root message metadata so channel list can refresh reply count
       const [rootMessage] = await this.presenter.getThread(payload.parentId);
       if (rootMessage) {
         this.server.to(payload.channelId).emit('thread_updated', rootMessage);
@@ -46,5 +44,22 @@ export class MessageGateway {
 
     return message;
   }
+
+  /**
+   * toggle_reaction — client emits this after a successful REST toggle.
+   * Broadcasts the updated reactions array to all other clients in the channel.
+   *
+   * Payload: { channelId, messageId, reactions: ReactionView[] }
+   */
+  @SubscribeMessage('toggle_reaction')
+  handleReactionToggle(
+    @MessageBody() payload: { channelId: string; messageId: string; reactions: any[] },
+  ) {
+    this.server.to(payload.channelId).emit('reaction_updated', {
+      messageId: payload.messageId,
+      reactions: payload.reactions,
+    });
+  }
 }
+
 

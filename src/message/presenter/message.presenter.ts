@@ -3,11 +3,15 @@
 // =========================
 import { Injectable } from '@nestjs/common';
 import { MessageRepository } from '../model/message.repository';
+import { MessageReactionRepository, ReactionView } from '../model/message-reaction.repository';
 import { Message } from '../model/message.entity';
 
 @Injectable()
 export class MessagePresenter {
-    constructor(private readonly repo: MessageRepository) { }
+    constructor(
+        private readonly repo: MessageRepository,
+        private readonly reactionRepo: MessageReactionRepository,
+    ) { }
 
     async sendMessage(payload: any) {
         const { content, channelId, senderId, parentId } = payload;
@@ -17,12 +21,7 @@ export class MessagePresenter {
 
         if (parentId) {
             parent = await this.repo.findOne(parentId);
-
-            if (!parent) {
-                throw new Error('Parent message not found');
-            }
-
-            // threadRootId always points to the top-level root
+            if (!parent) throw new Error('Parent message not found');
             threadRootId = parent.threadRootId ?? parent.id;
         }
 
@@ -38,32 +37,61 @@ export class MessagePresenter {
 
         const saved = await this.repo.save(message);
 
-        // Update root message metadata when a reply is created
         if (threadRootId) {
             await this.repo.incrementReplyCount(threadRootId);
             await this.repo.updateLastReply(threadRootId);
         }
 
-        // Return full message with sender populated
-        return await this.repo.findOne(saved.id);
+        const full = await this.repo.findOne(saved.id);
+        return this.formatMessage(full!);
     }
 
     async getChannelMessages(channelId: string, cursor?: string) {
-        return this.repo.findByChannel(channelId, cursor);
+        const messages = await this.repo.findByChannel(channelId, cursor);
+        return messages.map((m) => this.formatMessage(m));
     }
 
     async getThread(messageId: string) {
         const message = await this.repo.findOne(messageId);
+        if (!message) throw new Error('Message not found');
 
-        if (!message) {
-            throw new Error('Message not found');
-        }
-
-        // The root of the thread is either the message itself or its threadRootId
         const threadRootId = message.threadRootId ?? message.id;
+        const messages = await this.repo.findThread(threadRootId);
+        return messages.map((m) => this.formatMessage(m));
+    }
 
-        // Return root message + all replies ordered ASC
-        return this.repo.findThread(threadRootId);
+    /**
+     * Toggle one emoji reaction for one user on one message.
+     * Returns the full updated reactions array for that message.
+     */
+    async toggleReaction(
+        messageId: string,
+        emoji: string,
+        userId: string,
+    ): Promise<ReactionView[]> {
+        return this.reactionRepo.toggle(messageId, emoji, userId);
+    }
+
+    /** Normalize a Message entity into the shape the frontend expects. */
+    private formatMessage(message: Message) {
+        const reactions: ReactionView[] = (message.reactions ?? []).map((r) => ({
+            emoji: r.emoji,
+            count: r.users?.length ?? 0,
+            reactedUserIds: r.users?.map((u) => u.userId) ?? [],
+        }));
+
+        return {
+            id: message.id,
+            content: message.content,
+            sender: message.sender,
+            channel: message.channel,
+            parentId: message.parentId ?? null,
+            threadRootId: message.threadRootId ?? null,
+            replyCount: message.replyCount,
+            lastReplyAt: message.lastReplyAt ?? null,
+            createdAt: message.createdAt,
+            updatedAt: message.updatedAt,
+            reactions,
+        };
     }
 }
-

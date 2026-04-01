@@ -34,14 +34,14 @@ export class MessageRepository {
             where,
             order: { createdAt: 'DESC' },
             take: 20,
-            relations: ['sender', 'channel'],
+            relations: ['sender', 'channel', 'reactions', 'reactions.users'],
         });
     }
 
     async findOne(id: string) {
         return this.repo.findOne({
             where: { id: id },
-            relations: ['sender'],
+            relations: ['sender', 'reactions', 'reactions.users'],
         });
     }
 
@@ -51,17 +51,19 @@ export class MessageRepository {
                 { id: threadRootId },
                 { threadRootId: threadRootId },
             ],
-            relations: ['sender'],
+            relations: ['sender', 'reactions', 'reactions.users'],
             order: { createdAt: 'ASC' },
         });
     }
+
     async findReplies(parentId: string) {
         return this.repo.find({
             where: { parentId },
-            relations: ['sender'],
+            relations: ['sender', 'reactions', 'reactions.users'],
             order: { createdAt: 'ASC' },
         });
     }
+
     async incrementReplyCount(id: string) {
         return this.repo.increment({ id }, 'replyCount', 1);
     }
