@@ -15,6 +15,8 @@ export class MessageGateway {
   @WebSocketServer()
   server: Server;
 
+  constructor(private readonly presenter: MessagePresenter) { }
+
   @SubscribeMessage('join_channel')
   handleJoin(client: Socket, channelId: string) {
     client.join(channelId);
@@ -25,23 +27,39 @@ export class MessageGateway {
     client.leave(channelId);
   }
 
-  constructor(private readonly presenter: MessagePresenter) { }
-
   @SubscribeMessage('send_message')
   async handleMessage(@MessageBody() payload: any) {
     const message = await this.presenter.sendMessage(payload);
 
     if (payload.parentId) {
-      // 🔥 thread event
-      this.server
-        .to(payload.channelId)
-        .emit('new_thread_message', message);
+      this.server.to(payload.channelId).emit('new_thread_message', message);
+
+      const [rootMessage] = await this.presenter.getThread(payload.parentId);
+      if (rootMessage) {
+        this.server.to(payload.channelId).emit('thread_updated', rootMessage);
+      }
     } else {
-      this.server
-        .to(payload.channelId)
-        .emit('new_message', message);
+      this.server.to(payload.channelId).emit('new_message', message);
     }
 
     return message;
   }
+
+  /**
+   * toggle_reaction — client emits this after a successful REST toggle.
+   * Broadcasts the updated reactions array to all other clients in the channel.
+   *
+   * Payload: { channelId, messageId, reactions: ReactionView[] }
+   */
+  @SubscribeMessage('toggle_reaction')
+  handleReactionToggle(
+    @MessageBody() payload: { channelId: string; messageId: string; reactions: any[] },
+  ) {
+    this.server.to(payload.channelId).emit('reaction_updated', {
+      messageId: payload.messageId,
+      reactions: payload.reactions,
+    });
+  }
 }
+
+
