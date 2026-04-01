@@ -8,7 +8,7 @@ export const config = {
   port: parseInt(process.env.DB_PORT || '5432', 10),
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_DATABASE || 'survey',
+  database: process.env.DB_DATABASE || 'postgres',
   entities: ['dist/**/*.entity.{js,ts}'],
   migrations: ['dist/db/migrations/*.js'],
   logging: false,
