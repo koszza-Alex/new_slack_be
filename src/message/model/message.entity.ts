@@ -42,7 +42,7 @@ export class Message {
     parentId: string;
 
     // 🔥 THREAD: replies
-    @OneToMany(() => Message, (message) => message.parent)
+    @OneToMany(() => Message, (message) => message.parent) 
     replies: Message[];
 
 

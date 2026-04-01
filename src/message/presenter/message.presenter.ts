@@ -1,7 +1,7 @@
 // =========================
 // presenter/message.presenter.ts
 // =========================
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { MessageRepository } from '../model/message.repository';
 import { Message } from '../model/message.entity';
 
@@ -22,6 +22,7 @@ export class MessagePresenter {
                 throw new Error('Parent message not found');
             }
 
+            // threadRootId always points to the top-level root
             threadRootId = parent.threadRootId ?? parent.id;
         }
 
@@ -37,18 +38,20 @@ export class MessagePresenter {
 
         const saved = await this.repo.save(message);
 
+        // Update root message metadata when a reply is created
         if (threadRootId) {
             await this.repo.incrementReplyCount(threadRootId);
             await this.repo.updateLastReply(threadRootId);
         }
 
-        // ✅ fetch full sender with avatar
+        // Return full message with sender populated
         return await this.repo.findOne(saved.id);
     }
 
     async getChannelMessages(channelId: string, cursor?: string) {
         return this.repo.findByChannel(channelId, cursor);
     }
+
     async getThread(messageId: string) {
         const message = await this.repo.findOne(messageId);
 
@@ -56,11 +59,11 @@ export class MessagePresenter {
             throw new Error('Message not found');
         }
 
+        // The root of the thread is either the message itself or its threadRootId
         const threadRootId = message.threadRootId ?? message.id;
 
-        const threadMessages = await this.repo.findThread(threadRootId);
-
-        return threadMessages;
+        // Return root message + all replies ordered ASC
+        return this.repo.findThread(threadRootId);
     }
 }
 

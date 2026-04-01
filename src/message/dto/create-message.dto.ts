@@ -1,7 +1,7 @@
 // =========================
 // view/dto/create-message.dto.ts
 // =========================
-import { IsString } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class CreateMessageDto {
     @IsString()
@@ -12,4 +12,8 @@ export class CreateMessageDto {
 
     @IsString()
     senderId: string;
+
+    @IsOptional()
+    @IsString()
+    parentId?: string;
 }

@@ -15,6 +15,8 @@ export class MessageGateway {
   @WebSocketServer()
   server: Server;
 
+  constructor(private readonly presenter: MessagePresenter) { }
+
   @SubscribeMessage('join_channel')
   handleJoin(client: Socket, channelId: string) {
     client.join(channelId);
@@ -25,23 +27,24 @@ export class MessageGateway {
     client.leave(channelId);
   }
 
-  constructor(private readonly presenter: MessagePresenter) { }
-
   @SubscribeMessage('send_message')
   async handleMessage(@MessageBody() payload: any) {
     const message = await this.presenter.sendMessage(payload);
 
     if (payload.parentId) {
-      // 🔥 thread event
-      this.server
-        .to(payload.channelId)
-        .emit('new_thread_message', message);
+      // Emit the new thread reply to all clients in the channel
+      this.server.to(payload.channelId).emit('new_thread_message', message);
+
+      // Also emit updated root message metadata so channel list can refresh reply count
+      const [rootMessage] = await this.presenter.getThread(payload.parentId);
+      if (rootMessage) {
+        this.server.to(payload.channelId).emit('thread_updated', rootMessage);
+      }
     } else {
-      this.server
-        .to(payload.channelId)
-        .emit('new_message', message);
+      this.server.to(payload.channelId).emit('new_message', message);
     }
 
     return message;
   }
 }
+
