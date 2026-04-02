@@ -33,7 +33,7 @@ export class MessageRepository {
         return this.repo.find({
             where,
             order: { createdAt: 'DESC' },
-            take: 20,
+            // take: 20,
             relations: ['sender', 'channel', 'reactions', 'reactions.users'],
         });
     }

@@ -43,9 +43,8 @@ import { SearchModule } from './search/search.module';
     UserModule,
     MessagesModule,
     SearchModule,
-
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}
