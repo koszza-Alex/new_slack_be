@@ -281,8 +281,32 @@ export class DmService {
         return messages.map((m) => this.formatMessage(m));
     }
 
-    // ── Reactions ─────────────────────────────────────────────────────────────
+    // ── Edit / Delete ─────────────────────────────────────────────────────────
 
+    /** Update the content of a DM message. Caller must be the sender. */
+    async updateMessage(messageId: string, content: string, senderId: string) {
+        if (!content?.trim()) throw new BadRequestException('Content cannot be empty');
+        const message = await this.messageRepo.findOne({ where: { id: messageId } });
+        if (!message) throw new NotFoundException('DM message not found');
+        if (message.senderId !== senderId) throw new ForbiddenException('Not the sender');
+        await this.messageRepo.update(messageId, { content: content.trim() });
+        const updated = await this.messageRepo.findOne({
+            where: { id: messageId },
+            relations: ['sender', 'reactions', 'reactions.users'],
+        });
+        return this.formatMessage(updated!);
+    }
+
+    /** Hard-delete a DM message. Caller must be the sender. */
+    async deleteMessage(messageId: string, senderId: string) {
+        const message = await this.messageRepo.findOne({ where: { id: messageId } });
+        if (!message) throw new NotFoundException('DM message not found');
+        if (message.senderId !== senderId) throw new ForbiddenException('Not the sender');
+        await this.messageRepo.delete(messageId);
+        return { messageId };
+    }
+
+    // ── Reactions ─────────────────────────────────────────────────────────────
     /**
      * Toggle a reaction on a DM message.
      * Mirrors the channel reaction toggle logic exactly.
@@ -359,6 +383,7 @@ export class DmService {
             id: message.id,
             conversationId: message.conversationId,
             content: message.content,
+            senderId: message.senderId,
             sender: message.sender,
             parentId: message.parentId ?? null,
             threadRootId: message.threadRootId ?? null,

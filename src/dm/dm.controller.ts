@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
 import { DmService } from './dm.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendDmMessageDto } from './dto/send-dm-message.dto';
@@ -85,5 +85,23 @@ export class DmController {
     ) {
         return this.dmService.toggleReaction(messageId, dto.emoji, dto.userId)
             .then((reactions) => ({ messageId, reactions }));
+    }
+
+    /** PATCH edit a DM message — sender only */
+    @Patch('conversations/:conversationId/messages/:messageId')
+    updateMessage(
+        @Param('messageId') messageId: string,
+        @Body() body: { content: string; senderId: string },
+    ) {
+        return this.dmService.updateMessage(messageId, body.content, body.senderId);
+    }
+
+    /** DELETE a DM message — sender only */
+    @Delete('conversations/:conversationId/messages/:messageId')
+    deleteMessage(
+        @Param('messageId') messageId: string,
+        @Body() body: { senderId: string },
+    ) {
+        return this.dmService.deleteMessage(messageId, body.senderId);
     }
 }

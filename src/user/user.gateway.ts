@@ -49,6 +49,16 @@ export class UserGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return [...new Set(socketToUser.values())];
   }
 
+  @SubscribeMessage('user_signed_out')
+  handleUserSignedOut(client: Socket, @MessageBody() userId: string) {
+    if (userId) {
+      // Immediately broadcast offline to all clients — don't wait for TCP disconnect
+      this.server.emit('user_presence', { userId, isOnline: false });
+      // Clean up the mapping so handleDisconnect doesn't double-emit
+      socketToUser.delete(client.id);
+    }
+  }
+
   // Optional: frontend can explicitly register userId after connect
   @SubscribeMessage('register_user')
   handleRegisterUser(client: Socket, @MessageBody() userId: string) {

@@ -28,6 +28,11 @@ export class UserService {
     return this.userRepository.find();
   }
 
+  async countAll(): Promise<{ count: number }> {
+    const count = await this.userRepository.count();
+    return { count };
+  }
+
   findOne(id: string) {
     return this.userRepository.findOneBy({ id });
   }
