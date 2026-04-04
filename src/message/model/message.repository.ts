@@ -33,7 +33,7 @@ export class MessageRepository {
         return this.repo.find({
             where,
             order: { createdAt: 'DESC' },
-            take: 20,
+            // take: 20,
             relations: ['sender', 'channel', 'reactions', 'reactions.users'],
         });
     }
@@ -72,5 +72,14 @@ export class MessageRepository {
         return this.repo.update(id, {
             lastReplyAt: new Date(),
         });
+    }
+
+    async updateContent(id: string, content: string) {
+        await this.repo.update(id, { content });
+        return this.findOne(id);
+    }
+
+    async deleteById(id: string) {
+        await this.repo.delete(id);
     }
 }
