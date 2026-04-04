@@ -33,6 +33,13 @@ export class UserController {
   }
   // ================================================================
 
+  // GET /api/user/count — returns total user count (no auth required)
+  @Get('count')
+  async count() {
+    return this.userService.countAll();
+  }
+
+  // ================================================================
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Get()
