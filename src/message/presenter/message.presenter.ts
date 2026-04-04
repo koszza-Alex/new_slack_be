@@ -75,6 +75,18 @@ export class MessagePresenter {
     return this.reactionRepo.toggle(messageId, emoji, userId);
   }
 
+  /** Update the content of a message. Only the sender should call this. */
+  async updateMessage(messageId: string, content: string) {
+    const updated = await this.repo.updateContent(messageId, content);
+    if (!updated) throw new Error('Message not found');
+    return this.formatMessage(updated);
+  }
+
+  /** Hard-delete a message by id. Only the sender should call this. */
+  async deleteMessage(messageId: string): Promise<void> {
+    await this.repo.deleteById(messageId);
+  }
+
   /** Normalize a Message entity into the shape the frontend expects. */
   private formatMessage(message: Message) {
     const reactions: ReactionView[] = (message.reactions ?? []).map((r) => ({

@@ -73,4 +73,13 @@ export class MessageRepository {
             lastReplyAt: new Date(),
         });
     }
+
+    async updateContent(id: string, content: string) {
+        await this.repo.update(id, { content });
+        return this.findOne(id);
+    }
+
+    async deleteById(id: string) {
+        await this.repo.delete(id);
+    }
 }

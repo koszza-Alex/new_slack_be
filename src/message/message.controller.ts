@@ -1,7 +1,7 @@
 // =========================
 // view/message.controller.ts
 // =========================
-import { Controller, Post, Patch, Get, Body, Param, Query } from '@nestjs/common';
+import { Controller, Post, Patch, Delete, Get, Body, Param, Query, ForbiddenException } from '@nestjs/common';
 import { MessagePresenter } from './presenter/message.presenter';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { ToggleReactionDto } from './dto/toggle-reaction.dto';
@@ -49,6 +49,28 @@ export class MessageController {
             dto.userId,
         );
         return { messageId, reactions };
+    }
+
+    // PATCH /channels/:channelId/messages/:messageId — edit message content
+    @Patch(':messageId')
+    async updateMessage(
+        @Param('messageId') messageId: string,
+        @Body() body: { content: string; senderId: string },
+    ) {
+        if (!body.content?.trim()) {
+            throw new ForbiddenException('Content cannot be empty');
+        }
+        return this.presenter.updateMessage(messageId, body.content.trim());
+    }
+
+    // DELETE /channels/:channelId/messages/:messageId — delete a message
+    @Delete(':messageId')
+    async deleteMessage(
+        @Param('messageId') messageId: string,
+        @Body() body: { senderId: string },
+    ) {
+        await this.presenter.deleteMessage(messageId);
+        return { messageId };
     }
 }
 
