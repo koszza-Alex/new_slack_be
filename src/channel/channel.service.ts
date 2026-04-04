@@ -127,6 +127,15 @@ export class ChannelService {
         return await this.channelRepo.save(channel);
     }
 
+    async getChannelById(channelId: string) {
+        const channel = await this.channelRepo.findOne({
+            where: { id: channelId },
+            relations: ['members'],
+        });
+        if (!channel) throw new NotFoundException('Channel not found');
+        return channel;
+    }
+
     async deleteChannel(channelId: string) {
         await this.channelRepo.delete(channelId);
         return { id: channelId };
