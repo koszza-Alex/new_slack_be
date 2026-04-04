@@ -15,6 +15,7 @@ import { MessagesModule } from './message/message.module';
 import { UserModule } from './user/user.module';
 import { ChannelModule } from './channel/channel.module';
 import { SearchModule } from './search/search.module';
+import { DmModule } from './dm/dm.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { SearchModule } from './search/search.module';
     UserModule,
     MessagesModule,
     SearchModule,
+    DmModule,
   ],
   controllers: [AppController],
   providers: [AppService],
