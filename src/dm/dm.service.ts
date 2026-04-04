@@ -383,6 +383,7 @@ export class DmService {
             id: message.id,
             conversationId: message.conversationId,
             content: message.content,
+            senderId: message.senderId,
             sender: message.sender,
             parentId: message.parentId ?? null,
             threadRootId: message.threadRootId ?? null,
