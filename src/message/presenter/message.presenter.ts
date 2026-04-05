@@ -115,6 +115,7 @@ export class MessagePresenter {
       reactedUsers: r.users?.map((u) => ({
         id: u.userId,
         dispname: (u as any).user?.dispname ?? null,
+        email: (u as any).user?.email ?? null,
       })) ?? [],
     }));
 

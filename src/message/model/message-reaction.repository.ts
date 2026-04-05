@@ -3,11 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { MessageReaction } from './message-reaction.entity';
 import { MessageReactionUser } from './message-reaction-user.entity';
+import { User } from 'src/user/entities/user.entity';
 
 export interface ReactionView {
     emoji: string;
     count: number;
     reactedUserIds: string[];
+    reactedUsers?: { id: string; dispname: string | null; email: string | null }[];
 }
 
 @Injectable()
@@ -95,10 +97,23 @@ export class MessageReactionRepository {
             where: { messageId },
             relations: ['users'],
         });
-        return rows.map((r) => ({
-            emoji: r.emoji,
-            count: r.users.length,
-            reactedUserIds: r.users.map((u) => u.userId),
+
+        return Promise.all(rows.map(async (r) => {
+            const userIds = r.users.map((u) => u.userId);
+            const users = userIds.length > 0
+                ? await this.dataSource.getRepository(User).findByIds(userIds)
+                : [];
+            const userMap = new Map(users.map((u) => [u.id, u]));
+            return {
+                emoji: r.emoji,
+                count: r.users.length,
+                reactedUserIds: userIds,
+                reactedUsers: userIds.map((uid) => ({
+                    id: uid,
+                    dispname: userMap.get(uid)?.dispname ?? null,
+                    email: userMap.get(uid)?.email ?? null,
+                })),
+            };
         }));
     }
 }
