@@ -68,6 +68,17 @@ export class MessageRepository {
         return this.repo.increment({ id }, 'replyCount', 1);
     }
 
+    async decrementReplyCount(id: string) {
+        // Clamp at 0 — never go negative
+        await this.repo.decrement({ id }, 'replyCount', 1);
+        await this.repo.update({ id }, {}); // no-op flush; decrement already persists
+        // Re-read to ensure we don't return a negative value
+        const msg = await this.findOne(id);
+        if (msg && msg.replyCount < 0) {
+            await this.repo.update(id, { replyCount: 0 });
+        }
+    }
+
     async updateLastReply(id: string) {
         return this.repo.update(id, {
             lastReplyAt: new Date(),

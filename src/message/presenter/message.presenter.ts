@@ -82,9 +82,28 @@ export class MessagePresenter {
     return this.formatMessage(updated);
   }
 
-  /** Hard-delete a message by id. Only the sender should call this. */
-  async deleteMessage(messageId: string): Promise<void> {
+  /** Hard-delete a message by id. Only the sender should call this.
+   * If the message is a thread reply, decrements replyCount on the root
+   * and returns the updated root message so callers can broadcast thread_updated.
+   * Returns null when the deleted message was a root (no root to update).
+   */
+  async deleteMessage(messageId: string): Promise<{ updatedRoot: any } | null> {
+    const message = await this.repo.findOne(messageId);
+    if (!message) throw new Error('Message not found');
+
+    const threadRootId = message.threadRootId ?? (message.parentId ? message.parentId : null);
+
     await this.repo.deleteById(messageId);
+
+    if (threadRootId) {
+      await this.repo.decrementReplyCount(threadRootId);
+      const updatedRoot = await this.repo.findOne(threadRootId);
+      if (updatedRoot) {
+        return { updatedRoot: this.formatMessage(updatedRoot) };
+      }
+    }
+
+    return null;
   }
 
   /** Normalize a Message entity into the shape the frontend expects. */

@@ -97,15 +97,24 @@ export class DmGateway {
     /**
      * dm_message_delete — client emits after a successful REST DELETE.
      * Broadcasts dmMessageDeleted to all clients in the DM room.
-     * Payload: { conversationId, messageId }
+     * If the deleted message was a thread reply, also broadcasts dm_thread_updated
+     * with the updated root so all clients refresh the replyCount.
+     *
+     * Payload: { conversationId, messageId, updatedRoot? }
      */
     @SubscribeMessage('dm_message_delete')
     handleDmMessageDelete(@MessageBody() payload: {
         conversationId: string;
         messageId: string;
+        updatedRoot?: any;
     }) {
-        this.server.to(`dm:${payload.conversationId}`).emit('dmMessageDeleted', {
+        const room = `dm:${payload.conversationId}`;
+        this.server.to(room).emit('dmMessageDeleted', {
             messageId: payload.messageId,
         });
+
+        if (payload.updatedRoot) {
+            this.server.to(room).emit('dm_thread_updated', payload.updatedRoot);
+        }
     }
 }
