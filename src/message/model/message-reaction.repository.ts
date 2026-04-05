@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { MessageReaction } from './message-reaction.entity';
 import { MessageReactionUser } from './message-reaction-user.entity';
 import { User } from 'src/user/entities/user.entity';
@@ -17,8 +17,6 @@ export class MessageReactionRepository {
     constructor(
         @InjectRepository(MessageReaction)
         private readonly reactionRepo: Repository<MessageReaction>,
-        @InjectRepository(MessageReactionUser)
-        private readonly userRepo: Repository<MessageReactionUser>,
         private readonly dataSource: DataSource,
     ) {}
 
@@ -101,7 +99,7 @@ export class MessageReactionRepository {
         return Promise.all(rows.map(async (r) => {
             const userIds = r.users.map((u) => u.userId);
             const users = userIds.length > 0
-                ? await this.dataSource.getRepository(User).findByIds(userIds)
+                ? await this.dataSource.getRepository(User).find({ where: { id: In(userIds) } })
                 : [];
             const userMap = new Map(users.map((u) => [u.id, u]));
             return {

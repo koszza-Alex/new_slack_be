@@ -3,7 +3,7 @@
 // =========================
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { MessageRepository } from '../model/message.repository';
 import {
   MessageReactionRepository,
@@ -11,6 +11,7 @@ import {
 } from '../model/message-reaction.repository';
 import { Message } from '../model/message.entity';
 import { File } from '../entities/file.entity';
+import { User } from 'src/user/entities/user.entity';
 
 @Injectable()
 export class MessagePresenter {
@@ -19,6 +20,8 @@ export class MessagePresenter {
     private readonly reactionRepo: MessageReactionRepository,
     @InjectRepository(File)
     private readonly fileRepo: Repository<File>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
   ) {}
 
   async sendMessage(payload: any) {
@@ -61,7 +64,7 @@ export class MessagePresenter {
 
   async getChannelMessages(channelId: string, cursor?: string) {
     const messages = await this.repo.findByChannel(channelId, cursor);
-    return messages.map((m) => this.formatMessage(m));
+    return Promise.all(messages.map((m) => this.formatMessage(m)));
   }
 
   async getThread(messageId: string) {
@@ -70,7 +73,7 @@ export class MessagePresenter {
 
     const threadRootId = message.threadRootId ?? message.id;
     const messages = await this.repo.findThread(threadRootId);
-    return messages.map((m) => this.formatMessage(m));
+    return Promise.all(messages.map((m) => this.formatMessage(m)));
   }
 
   async toggleReaction(
@@ -99,7 +102,7 @@ export class MessagePresenter {
       await this.repo.decrementReplyCount(threadRootId);
       const updatedRoot = await this.repo.findOne(threadRootId);
       if (updatedRoot) {
-        return { updatedRoot: this.formatMessage(updatedRoot) };
+        return { updatedRoot: await this.formatMessage(updatedRoot) };
       }
     }
 
@@ -107,17 +110,34 @@ export class MessagePresenter {
   }
 
   /** Normalize a Message entity into the shape the frontend expects. */
-  formatMessage(message: Message) {
-    const reactions: ReactionView[] = (message.reactions ?? []).map((r) => ({
-      emoji: r.emoji,
-      count: r.users?.length ?? 0,
-      reactedUserIds: r.users?.map((u) => u.userId) ?? [],
-      reactedUsers: r.users?.map((u) => ({
-        id: u.userId,
-        dispname: (u as any).user?.dispname ?? null,
-        email: (u as any).user?.email ?? null,
-      })) ?? [],
-    }));
+  async formatMessage(message: Message) {
+    // Collect all unique user IDs across all reactions for this message
+    const allUserIds = [
+      ...new Set(
+        (message.reactions ?? []).flatMap((r) => r.users?.map((u) => u.userId) ?? []),
+      ),
+    ];
+
+    // Batch-load User rows so we have email + dispname for every reactor
+    const userMap = new Map<string, User>();
+    if (allUserIds.length > 0) {
+      const users = await this.userRepo.find({ where: { id: In(allUserIds) } });
+      users.forEach((u) => userMap.set(u.id, u));
+    }
+
+    const reactions: ReactionView[] = (message.reactions ?? []).map((r) => {
+      const userIds = r.users?.map((u) => u.userId) ?? [];
+      return {
+        emoji: r.emoji,
+        count: userIds.length,
+        reactedUserIds: userIds,
+        reactedUsers: userIds.map((uid) => ({
+          id: uid,
+          dispname: userMap.get(uid)?.dispname ?? null,
+          email: userMap.get(uid)?.email ?? null,
+        })),
+      };
+    });
 
     const file = (message.files ?? []).map((f) => ({
       id: f.id,

@@ -5,7 +5,7 @@ import {
     ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { DmConversation } from './entities/dm-conversation.entity';
 import { DmParticipant } from './entities/dm-participant.entity';
 import { DmMessage } from './entities/dm-message.entity';
@@ -264,7 +264,7 @@ export class DmService {
             relations: ['sender', 'reactions', 'reactions.users'],
         });
 
-        return this.formatMessage(full!);
+        return await this.formatMessage(full!);
     }
 
     // ── Threads ───────────────────────────────────────────────────────────────
@@ -303,7 +303,7 @@ export class DmService {
             where: { id: messageId },
             relations: ['sender', 'reactions', 'reactions.users'],
         });
-        return this.formatMessage(updated!);
+        return await this.formatMessage(updated!);
     }
 
     /** Hard-delete a DM message. Caller must be the sender.
@@ -330,7 +330,7 @@ export class DmService {
                 await this.messageRepo.update(threadRootId, { replyCount: 0 });
                 root.replyCount = 0;
             }
-            return { messageId, updatedRoot: root ? this.formatMessage(root) : null };
+            return { messageId, updatedRoot: root ? await this.formatMessage(root) : null };
         }
 
         return { messageId, updatedRoot: null };
@@ -375,11 +375,17 @@ export class DmService {
             }
         });
 
-        // Return full updated reactions
+        // Return full updated reactions with real user data
         const rows = await this.reactionRepo.find({
             where: { messageId },
-            relations: ['users', 'users.user'],
+            relations: ['users'],
         });
+
+        const allUserIds = [...new Set(rows.flatMap((r) => r.users.map((u) => u.userId)))];
+        const users = allUserIds.length > 0
+            ? await this.userRepo.find({ where: { id: In(allUserIds) } })
+            : [];
+        const userMap = new Map(users.map((u) => [u.id, u]));
 
         return rows.map((r) => ({
             emoji: r.emoji,
@@ -387,8 +393,8 @@ export class DmService {
             reactedUserIds: r.users.map((u) => u.userId),
             reactedUsers: r.users.map((u) => ({
                 id: u.userId,
-                dispname: (u as any).user?.dispname ?? null,
-                email: (u as any).user?.email ?? null,
+                dispname: userMap.get(u.userId)?.dispname ?? null,
+                email: userMap.get(u.userId)?.email ?? null,
             })),
         }));
     }
@@ -408,16 +414,33 @@ export class DmService {
 
     /** Normalize a DmMessage into the shape the frontend expects (mirrors channel formatMessage) */
     async formatMessage(message: DmMessage) {
-        const reactions: DmReactionView[] = (message.reactions ?? []).map((r) => ({
-            emoji: r.emoji,
-            count: r.users?.length ?? 0,
-            reactedUserIds: r.users?.map((u) => u.userId) ?? [],
-            reactedUsers: r.users?.map((u) => ({
-                id: u.userId,
-                dispname: (u as any).user?.dispname ?? null,
-                email: (u as any).user?.email ?? null,
-            })) ?? [],
-        }));
+        // Collect all unique reactor user IDs across all reactions for this message
+        const allUserIds = [
+            ...new Set(
+                (message.reactions ?? []).flatMap((r) => r.users?.map((u) => u.userId) ?? []),
+            ),
+        ];
+
+        // Batch-load User rows so we have email + dispname for every reactor
+        const userMap = new Map<string, User>();
+        if (allUserIds.length > 0) {
+            const users = await this.userRepo.find({ where: { id: In(allUserIds) } });
+            users.forEach((u) => userMap.set(u.id, u));
+        }
+
+        const reactions: DmReactionView[] = (message.reactions ?? []).map((r) => {
+            const userIds = r.users?.map((u) => u.userId) ?? [];
+            return {
+                emoji: r.emoji,
+                count: userIds.length,
+                reactedUserIds: userIds,
+                reactedUsers: userIds.map((uid) => ({
+                    id: uid,
+                    dispname: userMap.get(uid)?.dispname ?? null,
+                    email: userMap.get(uid)?.email ?? null,
+                })),
+            };
+        });
 
         // Load files linked to this DM message
         const fileRows = await this.fileRepo.find({ where: { dmMessageId: message.id } });
