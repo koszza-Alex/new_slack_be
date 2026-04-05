@@ -297,13 +297,34 @@ export class DmService {
         return this.formatMessage(updated!);
     }
 
-    /** Hard-delete a DM message. Caller must be the sender. */
-    async deleteMessage(messageId: string, senderId: string) {
+    /** Hard-delete a DM message. Caller must be the sender.
+     * If the message is a thread reply, decrements replyCount on the root
+     * and returns the updated root so the gateway can broadcast dm_thread_updated.
+     */
+    async deleteMessage(messageId: string, senderId: string): Promise<{ messageId: string; updatedRoot: any | null }> {
         const message = await this.messageRepo.findOne({ where: { id: messageId } });
         if (!message) throw new NotFoundException('DM message not found');
         if (message.senderId !== senderId) throw new ForbiddenException('Not the sender');
+
+        const threadRootId = message.threadRootId ?? (message.parentId ? message.parentId : null);
+
         await this.messageRepo.delete(messageId);
-        return { messageId };
+
+        if (threadRootId) {
+            // Decrement, clamping at 0
+            await this.messageRepo.decrement({ id: threadRootId }, 'replyCount', 1);
+            const root = await this.messageRepo.findOne({
+                where: { id: threadRootId },
+                relations: ['sender', 'reactions', 'reactions.users'],
+            });
+            if (root && root.replyCount < 0) {
+                await this.messageRepo.update(threadRootId, { replyCount: 0 });
+                root.replyCount = 0;
+            }
+            return { messageId, updatedRoot: root ? this.formatMessage(root) : null };
+        }
+
+        return { messageId, updatedRoot: null };
     }
 
     // ── Reactions ─────────────────────────────────────────────────────────────

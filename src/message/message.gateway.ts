@@ -81,16 +81,22 @@ export class MessageGateway {
   /**
    * message_delete — client emits after a successful REST DELETE.
    * Broadcasts messageDeleted to all subscribers in the channel.
+   * If the deleted message was a thread reply, also broadcasts thread_updated
+   * with the updated root so all clients refresh the replyCount.
    *
-   * Payload: { channelId, messageId }
+   * Payload: { channelId, messageId, updatedRoot? }
    */
   @SubscribeMessage('message_delete')
   handleMessageDelete(
-    @MessageBody() payload: { channelId: string; messageId: string },
+    @MessageBody() payload: { channelId: string; messageId: string; updatedRoot?: any },
   ) {
     this.server.to(payload.channelId).emit('messageDeleted', {
       messageId: payload.messageId,
     });
+
+    if (payload.updatedRoot) {
+      this.server.to(payload.channelId).emit('thread_updated', payload.updatedRoot);
+    }
   }
 }
 

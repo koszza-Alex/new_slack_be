@@ -66,11 +66,12 @@ export class MessageController {
     // DELETE /channels/:channelId/messages/:messageId — delete a message
     @Delete(':messageId')
     async deleteMessage(
+        @Param('channelId') channelId: string,
         @Param('messageId') messageId: string,
         @Body() body: { senderId: string },
     ) {
-        await this.presenter.deleteMessage(messageId);
-        return { messageId };
+        const result = await this.presenter.deleteMessage(messageId);
+        return { messageId, updatedRoot: result?.updatedRoot ?? null };
     }
 }
 
