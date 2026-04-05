@@ -60,6 +60,38 @@ export class MessageGateway {
       reactions: payload.reactions,
     });
   }
+
+  /**
+   * message_edit — client emits after a successful REST PATCH.
+   * Broadcasts messageEdited to all subscribers in the channel.
+   *
+   * Payload: { channelId, messageId, content, updatedAt }
+   */
+  @SubscribeMessage('message_edit')
+  handleMessageEdit(
+    @MessageBody() payload: { channelId: string; messageId: string; content: string; updatedAt: string },
+  ) {
+    this.server.to(payload.channelId).emit('messageEdited', {
+      messageId: payload.messageId,
+      content: payload.content,
+      updatedAt: payload.updatedAt,
+    });
+  }
+
+  /**
+   * message_delete — client emits after a successful REST DELETE.
+   * Broadcasts messageDeleted to all subscribers in the channel.
+   *
+   * Payload: { channelId, messageId }
+   */
+  @SubscribeMessage('message_delete')
+  handleMessageDelete(
+    @MessageBody() payload: { channelId: string; messageId: string },
+  ) {
+    this.server.to(payload.channelId).emit('messageDeleted', {
+      messageId: payload.messageId,
+    });
+  }
 }
 
 

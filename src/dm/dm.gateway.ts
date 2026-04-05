@@ -74,4 +74,38 @@ export class DmGateway {
             reactions: payload.reactions,
         });
     }
+
+    /**
+     * dm_message_edit — client emits after a successful REST PATCH.
+     * Broadcasts dmMessageEdited to all clients in the DM room.
+     * Payload: { conversationId, messageId, content, updatedAt }
+     */
+    @SubscribeMessage('dm_message_edit')
+    handleDmMessageEdit(@MessageBody() payload: {
+        conversationId: string;
+        messageId: string;
+        content: string;
+        updatedAt: string;
+    }) {
+        this.server.to(`dm:${payload.conversationId}`).emit('dmMessageEdited', {
+            messageId: payload.messageId,
+            content: payload.content,
+            updatedAt: payload.updatedAt,
+        });
+    }
+
+    /**
+     * dm_message_delete — client emits after a successful REST DELETE.
+     * Broadcasts dmMessageDeleted to all clients in the DM room.
+     * Payload: { conversationId, messageId }
+     */
+    @SubscribeMessage('dm_message_delete')
+    handleDmMessageDelete(@MessageBody() payload: {
+        conversationId: string;
+        messageId: string;
+    }) {
+        this.server.to(`dm:${payload.conversationId}`).emit('dmMessageDeleted', {
+            messageId: payload.messageId,
+        });
+    }
 }
