@@ -35,6 +35,10 @@ export class Channel {
   @Column({ type: 'enum', enum: ChannelType, default: ChannelType.PUBLIC })
   channelType: ChannelType;
 
+  /** The user who created this channel — used for ownership checks on edit/delete */
+  @Column({ nullable: true })
+  creatorId: string;
+
   // privacy channel members (many-to-many)
   @ManyToMany(() => User, (user) => user.channels)
   @JoinTable()

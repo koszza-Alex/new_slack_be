@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Channel } from './entities/channel.entity';
 import { Repository } from 'typeorm';
@@ -23,15 +23,20 @@ export class ChannelService {
         channelId: string;
         name?: string;
         type?: ChannelType;
+        userId: string;
     }) {
-        const { channelId, name, type } = payload;
+        const { channelId, name, type, userId } = payload;
 
         const channel = await this.channelRepo.findOne({
             where: { id: channelId },
         });
 
         if (!channel) {
-            throw new Error("Channel not found");
+            throw new NotFoundException('Channel not found');
+        }
+
+        if (channel.creatorId && channel.creatorId !== userId) {
+            throw new ForbiddenException('You can only edit channels you created');
         }
 
         if (name) channel.name = name;
@@ -121,6 +126,7 @@ export class ChannelService {
             name,
             workspace,
             channelType: type,
+            creatorId: userId,
             members: type === 'private' ? [user] : [],
         });
 
@@ -136,7 +142,17 @@ export class ChannelService {
         return channel;
     }
 
-    async deleteChannel(channelId: string) {
+    async deleteChannel(channelId: string, userId: string) {
+        const channel = await this.channelRepo.findOne({
+            where: { id: channelId },
+        });
+
+        if (!channel) throw new NotFoundException('Channel not found');
+
+        if (channel.creatorId && channel.creatorId !== userId) {
+            throw new ForbiddenException('You can only delete channels you created');
+        }
+
         await this.channelRepo.delete(channelId);
         return { id: channelId };
     }

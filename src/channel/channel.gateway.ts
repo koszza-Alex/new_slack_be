@@ -5,9 +5,9 @@ import {
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { ChannelService } from './channel.service';
-import { Socket } from 'dgram';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 
 @WebSocketGateway({
   cors: {
@@ -25,40 +25,50 @@ export class ChannelGateway {
   @SubscribeMessage("channel:list")
   async handleList(client: any, payload: { workspaceId: string }) {
     const channels = await this.channelService.getChannels(payload.workspaceId);
-
     client.emit("channel:list", channels);
   }
 
   // CREATE CHANNEL
   @SubscribeMessage("channel:create")
-  async handleCreate(@MessageBody() payload) {
+  async handleCreate(@MessageBody() payload: any) {
     const channel = await this.channelService.createChannel(payload);
-    this.server
-      .emit("channel:created", channel);
+    this.server.emit("channel:created", channel);
   }
 
-  // DELETE CHANNEL
+  // DELETE CHANNEL — requires userId for ownership check
   @SubscribeMessage("channel:delete")
   async handleDelete(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: { channelId: string; workspaceId: string }
+    @MessageBody() payload: { channelId: string; workspaceId: string; userId: string }
   ) {
-    await this.channelService.deleteChannel(payload.channelId);
-
-    this.server.emit("channel:deleted", {
-      channelId: payload.channelId,
-    });
-
+    try {
+      await this.channelService.deleteChannel(payload.channelId, payload.userId);
+      this.server.emit("channel:deleted", { channelId: payload.channelId });
+    } catch (err) {
+      if (err instanceof ForbiddenException || err instanceof NotFoundException) {
+        client.emit("channel:error", { message: err.message });
+      } else {
+        client.emit("channel:error", { message: "Failed to delete channel" });
+      }
+    }
   }
-  
-   // update channel
+
+  // UPDATE CHANNEL — requires userId for ownership check
   @SubscribeMessage("channel:update")
-async handleUpdate(client: any, payload: any) {
-  const updatedChannel = await this.channelService.updateChannel(payload);
-
-  // ✅ broadcast to workspace only (important)
-  this.server.emit("channel:updated", updatedChannel);
-
-  return updatedChannel;
-}
+  async handleUpdate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: any
+  ) {
+    try {
+      const updatedChannel = await this.channelService.updateChannel(payload);
+      this.server.emit("channel:updated", updatedChannel);
+      return updatedChannel;
+    } catch (err) {
+      if (err instanceof ForbiddenException || err instanceof NotFoundException) {
+        client.emit("channel:error", { message: err.message });
+      } else {
+        client.emit("channel:error", { message: "Failed to update channel" });
+      }
+    }
+  }
 }
