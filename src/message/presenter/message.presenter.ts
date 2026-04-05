@@ -2,22 +2,27 @@
 // presenter/message.presenter.ts
 // =========================
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { MessageRepository } from '../model/message.repository';
 import {
   MessageReactionRepository,
   ReactionView,
 } from '../model/message-reaction.repository';
 import { Message } from '../model/message.entity';
+import { File } from '../entities/file.entity';
 
 @Injectable()
 export class MessagePresenter {
   constructor(
     private readonly repo: MessageRepository,
     private readonly reactionRepo: MessageReactionRepository,
+    @InjectRepository(File)
+    private readonly fileRepo: Repository<File>,
   ) {}
 
   async sendMessage(payload: any) {
-    const { content, channelId, senderId, parentId } = payload;
+    const { content, channelId, senderId, parentId, fileIds } = payload;
 
     let parent: Message | null = null;
     let threadRootId: string | null = null;
@@ -39,6 +44,11 @@ export class MessagePresenter {
     message.channel = { id: channelId } as any;
 
     const saved = await this.repo.save(message);
+
+    // Link any pre-uploaded files to this message
+    if (Array.isArray(fileIds) && fileIds.length > 0) {
+      await this.fileRepo.update(fileIds, { messageId: saved.id });
+    }
 
     if (threadRootId) {
       await this.repo.incrementReplyCount(threadRootId);
@@ -63,10 +73,6 @@ export class MessagePresenter {
     return messages.map((m) => this.formatMessage(m));
   }
 
-  /**
-   * Toggle one emoji reaction for one user on one message.
-   * Returns the full updated reactions array for that message.
-   */
   async toggleReaction(
     messageId: string,
     emoji: string,
@@ -75,18 +81,12 @@ export class MessagePresenter {
     return this.reactionRepo.toggle(messageId, emoji, userId);
   }
 
-  /** Update the content of a message. Only the sender should call this. */
   async updateMessage(messageId: string, content: string) {
     const updated = await this.repo.updateContent(messageId, content);
     if (!updated) throw new Error('Message not found');
     return this.formatMessage(updated);
   }
 
-  /** Hard-delete a message by id. Only the sender should call this.
-   * If the message is a thread reply, decrements replyCount on the root
-   * and returns the updated root message so callers can broadcast thread_updated.
-   * Returns null when the deleted message was a root (no root to update).
-   */
   async deleteMessage(messageId: string): Promise<{ updatedRoot: any } | null> {
     const message = await this.repo.findOne(messageId);
     if (!message) throw new Error('Message not found');
@@ -107,11 +107,23 @@ export class MessagePresenter {
   }
 
   /** Normalize a Message entity into the shape the frontend expects. */
-  private formatMessage(message: Message) {
+  formatMessage(message: Message) {
     const reactions: ReactionView[] = (message.reactions ?? []).map((r) => ({
       emoji: r.emoji,
       count: r.users?.length ?? 0,
       reactedUserIds: r.users?.map((u) => u.userId) ?? [],
+      reactedUsers: r.users?.map((u) => ({
+        id: u.userId,
+        dispname: (u as any).user?.dispname ?? null,
+      })) ?? [],
+    }));
+
+    const file = (message.files ?? []).map((f) => ({
+      id: f.id,
+      name: f.originalname,
+      type: f.mimetype ?? '',
+      path: f.path,
+      size: f.size,
     }));
 
     return {
@@ -126,6 +138,7 @@ export class MessagePresenter {
       createdAt: message.createdAt,
       updatedAt: message.updatedAt,
       reactions,
+      files: file,
     };
   }
 }

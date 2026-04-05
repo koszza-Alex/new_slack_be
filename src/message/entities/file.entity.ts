@@ -2,16 +2,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
-  PrimaryGeneratedColumn
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 
-import { Channel } from 'src/channel/entities/channel.entity';
 import { User } from 'src/user/entities/user.entity';
-import { Workspace } from 'src/workspace/entities/workspace.entity';
-import { Message } from './message.entity';
+import { Message } from '../model/message.entity';
 
-@Entity()
+@Entity('files')
 export class File {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -28,21 +27,23 @@ export class File {
   @Column()
   filename: string;
 
-  // user (one-to-many)
-  @ManyToOne(() => User)
+  @Column({ nullable: true })
+  mimetype: string;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   sender: User;
-  
-  // workspace
-  @ManyToOne(() => Workspace, { nullable: false })
-  workspace: Workspace;
 
-  // message (one-to-many)
-  @ManyToOne(() => Channel)
-  channel: Channel;
-
-  // message (one-to-many)
-  @ManyToOne(() => Message)
+  /** Link to a channel message */
+  @ManyToOne(() => Message, (m) => m.files, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'messageId' })
   message: Message;
+
+  @Column({ nullable: true })
+  messageId: string;
+
+  /** Link to a DM message (stored as plain UUID — no FK to avoid circular deps) */
+  @Column({ nullable: true })
+  dmMessageId: string;
 
   @CreateDateColumn()
   createdAt: Date;

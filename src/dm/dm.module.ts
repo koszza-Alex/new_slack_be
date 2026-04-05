@@ -10,6 +10,7 @@ import { DmController } from './dm.controller';
 import { DmGateway } from './dm.gateway';
 import { Workspace } from 'src/workspace/entities/workspace.entity';
 import { User } from 'src/user/entities/user.entity';
+import { File } from 'src/message/entities/file.entity';
 
 @Module({
     imports: [
@@ -21,6 +22,7 @@ import { User } from 'src/user/entities/user.entity';
             DmMessageReactionUser,
             Workspace,
             User,
+            File,
         ]),
     ],
     controllers: [DmController],
