@@ -19,7 +19,7 @@ export interface DmReactionView {
     emoji: string;
     count: number;
     reactedUserIds: string[];
-    reactedUsers: { id: string; dispname: string | null }[];
+    reactedUsers: { id: string; dispname: string | null; email: string | null }[];
 }
 
 @Injectable()
@@ -388,6 +388,7 @@ export class DmService {
             reactedUsers: r.users.map((u) => ({
                 id: u.userId,
                 dispname: (u as any).user?.dispname ?? null,
+                email: (u as any).user?.email ?? null,
             })),
         }));
     }
@@ -414,6 +415,7 @@ export class DmService {
             reactedUsers: r.users?.map((u) => ({
                 id: u.userId,
                 dispname: (u as any).user?.dispname ?? null,
+                email: (u as any).user?.email ?? null,
             })) ?? [],
         }));
 
