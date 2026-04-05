@@ -13,11 +13,13 @@ import { DmMessageReaction } from './entities/dm-message-reaction.entity';
 import { DmMessageReactionUser } from './entities/dm-message-reaction-user.entity';
 import { Workspace } from 'src/workspace/entities/workspace.entity';
 import { User } from 'src/user/entities/user.entity';
+import { File } from 'src/message/entities/file.entity';
 
 export interface DmReactionView {
     emoji: string;
     count: number;
     reactedUserIds: string[];
+    reactedUsers: { id: string; dispname: string | null }[];
 }
 
 @Injectable()
@@ -37,6 +39,8 @@ export class DmService {
         private workspaceRepo: Repository<Workspace>,
         @InjectRepository(User)
         private userRepo: Repository<User>,
+        @InjectRepository(File)
+        private fileRepo: Repository<File>,
         private dataSource: DataSource,
     ) {}
 
@@ -217,11 +221,11 @@ export class DmService {
             relations: ['sender', 'reactions', 'reactions.users'],
         });
 
-        return messages.map((m) => this.formatMessage(m));
+        return Promise.all(messages.map((m) => this.formatMessage(m)));
     }
 
-    async sendMessage(conversationId: string, senderId: string, content: string, parentId?: string) {
-        if (!content?.trim()) throw new BadRequestException('Content cannot be empty');
+    async sendMessage(conversationId: string, senderId: string, content: string, parentId?: string, fileIds?: string[]) {
+        if (!content?.trim() && !(fileIds?.length)) throw new BadRequestException('Content cannot be empty');
 
         await this.assertParticipant(conversationId, senderId);
 
@@ -236,11 +240,16 @@ export class DmService {
         const message = this.messageRepo.create({
             conversationId,
             senderId,
-            content,
+            content: content?.trim() || '',
             parentId: parentId ?? undefined,
             threadRootId: threadRootId ?? undefined,
         });
         const saved = await this.messageRepo.save(message);
+
+        // Link any pre-uploaded files to this DM message
+        if (Array.isArray(fileIds) && fileIds.length > 0) {
+            await this.fileRepo.update(fileIds, { dmMessageId: saved.id });
+        }
 
         // Update thread metadata on root message
         if (threadRootId) {
@@ -278,7 +287,7 @@ export class DmService {
             order: { createdAt: 'ASC' },
         });
 
-        return messages.map((m) => this.formatMessage(m));
+        return Promise.all(messages.map((m) => this.formatMessage(m)));
     }
 
     // ── Edit / Delete ─────────────────────────────────────────────────────────
@@ -369,13 +378,17 @@ export class DmService {
         // Return full updated reactions
         const rows = await this.reactionRepo.find({
             where: { messageId },
-            relations: ['users'],
+            relations: ['users', 'users.user'],
         });
 
         return rows.map((r) => ({
             emoji: r.emoji,
             count: r.users.length,
             reactedUserIds: r.users.map((u) => u.userId),
+            reactedUsers: r.users.map((u) => ({
+                id: u.userId,
+                dispname: (u as any).user?.dispname ?? null,
+            })),
         }));
     }
 
@@ -393,11 +406,25 @@ export class DmService {
     }
 
     /** Normalize a DmMessage into the shape the frontend expects (mirrors channel formatMessage) */
-    formatMessage(message: DmMessage) {
+    async formatMessage(message: DmMessage) {
         const reactions: DmReactionView[] = (message.reactions ?? []).map((r) => ({
             emoji: r.emoji,
             count: r.users?.length ?? 0,
             reactedUserIds: r.users?.map((u) => u.userId) ?? [],
+            reactedUsers: r.users?.map((u) => ({
+                id: u.userId,
+                dispname: (u as any).user?.dispname ?? null,
+            })) ?? [],
+        }));
+
+        // Load files linked to this DM message
+        const fileRows = await this.fileRepo.find({ where: { dmMessageId: message.id } });
+        const files = fileRows.map((f) => ({
+            id: f.id,
+            name: f.originalname,
+            type: f.mimetype ?? '',
+            path: f.path,
+            size: f.size,
         }));
 
         return {
@@ -413,6 +440,7 @@ export class DmService {
             createdAt: message.createdAt,
             updatedAt: message.updatedAt,
             reactions,
+            files,
         };
     }
 }

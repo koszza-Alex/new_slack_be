@@ -12,6 +12,7 @@ import {
 import { User } from 'src/user/entities/user.entity';
 import { Channel } from 'src/channel/entities/channel.entity';
 import { MessageReaction } from './message-reaction.entity';
+import { File } from '../entities/file.entity';
 
 @Entity('messages')
 export class Message {
@@ -55,6 +56,10 @@ export class Message {
     // One message can have many reaction rows (one per emoji type)
     @OneToMany(() => MessageReaction, (r) => r.message, { nullable: true, eager: false })
     reactions: MessageReaction[];
+
+    // Attached files
+    @OneToMany(() => File, (f) => f.message, { nullable: true, eager: false })
+    files: File[];
 
     @CreateDateColumn()
     createdAt: Date;

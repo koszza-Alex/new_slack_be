@@ -12,6 +12,8 @@ import { MessageReactionRepository } from './model/message-reaction.repository';
 import { MessagePresenter } from './presenter/message.presenter';
 import { MessageController } from './message.controller';
 import { MessageGateway } from './message.gateway';
+import { FileController } from './file.controller';
+import { File } from './entities/file.entity';
 import { User } from 'src/user/entities/user.entity';
 import { Channel } from 'src/channel/entities/channel.entity';
 import { Workspace } from 'src/workspace/entities/workspace.entity';
@@ -22,12 +24,13 @@ import { Workspace } from 'src/workspace/entities/workspace.entity';
       Message,
       MessageReaction,
       MessageReactionUser,
+      File,
       User,
       Channel,
       Workspace,
     ]),
   ],
-  controllers: [MessageController],
+  controllers: [MessageController, FileController],
   providers: [
     MessagePresenter,
     MessageRepository,
@@ -36,5 +39,4 @@ import { Workspace } from 'src/workspace/entities/workspace.entity';
   ],
   exports: [MessagePresenter],
 })
-export class MessagesModule { }
-
+export class MessagesModule {}

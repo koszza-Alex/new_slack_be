@@ -34,14 +34,14 @@ export class MessageRepository {
             where,
             order: { createdAt: 'DESC' },
             // take: 20,
-            relations: ['sender', 'channel', 'reactions', 'reactions.users'],
+            relations: ['sender', 'channel', 'reactions', 'reactions.users', 'files'],
         });
     }
 
     async findOne(id: string) {
         return this.repo.findOne({
             where: { id: id },
-            relations: ['sender', 'reactions', 'reactions.users'],
+            relations: ['sender', 'reactions', 'reactions.users', 'files'],
         });
     }
 
@@ -51,7 +51,7 @@ export class MessageRepository {
                 { id: threadRootId },
                 { threadRootId: threadRootId },
             ],
-            relations: ['sender', 'reactions', 'reactions.users'],
+            relations: ['sender', 'reactions', 'reactions.users', 'files'],
             order: { createdAt: 'ASC' },
         });
     }
