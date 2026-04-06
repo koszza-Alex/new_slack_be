@@ -32,12 +32,14 @@ export class DmGateway {
         senderId: string;
         content: string;
         parentId?: string;
+        fileIds?: string[];
     }) {
         const message = await this.dmService.sendMessage(
             payload.conversationId,
             payload.senderId,
             payload.content,
             payload.parentId,
+            payload.fileIds,
         );
 
         const room = `dm:${payload.conversationId}`;
