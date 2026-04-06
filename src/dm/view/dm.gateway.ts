@@ -100,6 +100,7 @@ export class DmGateway {
         },
     ) {
         this.server.to(`dm:${payload.conversationId}`).emit('dm_reaction_updated', {
+            conversationId: payload.conversationId,
             messageId: payload.messageId,
             reactions: payload.reactions,
         });
@@ -110,6 +111,7 @@ export class DmGateway {
         @MessageBody() payload: { conversationId: string; messageId: string; content: string; updatedAt: string },
     ) {
         this.server.to(`dm:${payload.conversationId}`).emit('dmMessageEdited', {
+            conversationId: payload.conversationId,
             messageId: payload.messageId,
             content: payload.content,
             updatedAt: payload.updatedAt,
@@ -121,7 +123,10 @@ export class DmGateway {
         @MessageBody() payload: { conversationId: string; messageId: string; updatedRoot?: any },
     ) {
         const room = `dm:${payload.conversationId}`;
-        this.server.to(room).emit('dmMessageDeleted', { messageId: payload.messageId });
+        this.server.to(room).emit('dmMessageDeleted', {
+            conversationId: payload.conversationId,
+            messageId: payload.messageId,
+        });
         if (payload.updatedRoot) {
             this.server.to(room).emit('dm_thread_updated', payload.updatedRoot);
         }
