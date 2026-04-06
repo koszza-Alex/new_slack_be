@@ -5,12 +5,13 @@ import { DmParticipant } from './entities/dm-participant.entity';
 import { DmMessage } from './entities/dm-message.entity';
 import { DmMessageReaction } from './entities/dm-message-reaction.entity';
 import { DmMessageReactionUser } from './entities/dm-message-reaction-user.entity';
-import { DmService } from './dm.service';
-import { DmController } from './dm.controller';
-import { DmGateway } from './dm.gateway';
 import { Workspace } from 'src/workspace/entities/workspace.entity';
 import { User } from 'src/user/entities/user.entity';
 import { File } from 'src/message/entities/file.entity';
+import { DmService } from './dm.service';
+import { DmPresenter } from './presenter/dm.presenter';
+import { DmController } from './view/dm.controller';
+import { DmGateway } from './view/dm.gateway';
 
 @Module({
     imports: [
@@ -26,6 +27,6 @@ import { File } from 'src/message/entities/file.entity';
         ]),
     ],
     controllers: [DmController],
-    providers: [DmService, DmGateway],
+    providers: [DmService, DmPresenter, DmGateway],
 })
 export class DmModule {}

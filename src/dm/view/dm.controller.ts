@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
-import { DmService } from './dm.service';
-import { CreateConversationDto } from './dto/create-conversation.dto';
-import { SendDmMessageDto } from './dto/send-dm-message.dto';
+import { DmPresenter } from '../presenter/dm.presenter';
+import { CreateConversationDto } from '../dto/create-conversation.dto';
 import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { SendDmMessageDto } from '../dto/send-dm-message.dto';
 
 class ToggleDmReactionDto {
     @IsString() @IsNotEmpty() emoji: string;
@@ -13,16 +13,20 @@ class SendDmMessageWithParentDto extends SendDmMessageDto {
     @IsOptional() @IsString() parentId?: string;
 }
 
+/**
+ * DM View (REST) — HTTP interface only. No business logic.
+ * Delegates everything to DmPresenter.
+ */
 @Controller('workspaces/:workspaceId/dm')
 export class DmController {
-    constructor(private readonly dmService: DmService) {}
+    constructor(private readonly presenter: DmPresenter) {}
 
     @Get('candidates')
     getCandidates(
         @Param('workspaceId') workspaceId: string,
         @Query('currentUserId') currentUserId: string,
     ) {
-        return this.dmService.getCandidates(workspaceId, currentUserId);
+        return this.presenter.getCandidates(workspaceId, currentUserId);
     }
 
     @Get('conversations')
@@ -30,7 +34,7 @@ export class DmController {
         @Param('workspaceId') workspaceId: string,
         @Query('currentUserId') currentUserId: string,
     ) {
-        return this.dmService.listConversations(workspaceId, currentUserId);
+        return this.presenter.listConversations(workspaceId, currentUserId);
     }
 
     @Post('conversations')
@@ -38,70 +42,62 @@ export class DmController {
         @Param('workspaceId') workspaceId: string,
         @Body() dto: CreateConversationDto,
     ) {
-        return this.dmService.getOrCreateConversation(workspaceId, dto.currentUserId, dto.targetUserId);
+        return this.presenter.getOrCreateConversation(workspaceId, dto.currentUserId, dto.targetUserId);
     }
 
-    /** POST mark a conversation as read for the current user */
     @Post('conversations/:conversationId/read')
     markAsRead(
         @Param('conversationId') conversationId: string,
         @Query('currentUserId') currentUserId: string,
     ) {
-        return this.dmService.markAsRead(conversationId, currentUserId);
+        return this.presenter.markAsRead(conversationId, currentUserId);
     }
 
-    /** GET root messages only (parentId IS NULL) */
     @Get('conversations/:conversationId/messages')
     getMessages(
         @Param('conversationId') conversationId: string,
         @Query('currentUserId') currentUserId: string,
     ) {
-        return this.dmService.getMessages(conversationId, currentUserId);
+        return this.presenter.getMessages(conversationId, currentUserId);
     }
 
-    /** POST a root or thread reply DM message */
     @Post('conversations/:conversationId/messages')
     sendMessage(
         @Param('conversationId') conversationId: string,
         @Body() dto: SendDmMessageWithParentDto,
     ) {
-        return this.dmService.sendMessage(conversationId, dto.senderId, dto.content, dto.parentId);
+        return this.presenter.sendMessage(conversationId, dto.senderId, dto.content, dto.parentId);
     }
 
-    /** GET thread: root message + all replies for a DM message */
     @Get('conversations/:conversationId/messages/:messageId/thread')
     getThread(
         @Param('messageId') messageId: string,
         @Query('currentUserId') currentUserId: string,
     ) {
-        return this.dmService.getThread(messageId, currentUserId);
+        return this.presenter.getThread(messageId, currentUserId);
     }
 
-    /** PATCH toggle a reaction on a DM message */
     @Patch('conversations/:conversationId/messages/:messageId/reaction')
     toggleReaction(
         @Param('messageId') messageId: string,
         @Body() dto: ToggleDmReactionDto,
     ) {
-        return this.dmService.toggleReaction(messageId, dto.emoji, dto.userId)
-            .then((reactions) => ({ messageId, reactions }));
+        return this.presenter.toggleReaction(messageId, dto.emoji, dto.userId);
     }
 
-    /** PATCH edit a DM message — sender only */
     @Patch('conversations/:conversationId/messages/:messageId')
     updateMessage(
         @Param('messageId') messageId: string,
         @Body() body: { content: string; senderId: string },
     ) {
-        return this.dmService.updateMessage(messageId, body.content, body.senderId);
+        return this.presenter.updateMessage(messageId, body.content, body.senderId);
     }
 
-    /** DELETE a DM message — sender only */
     @Delete('conversations/:conversationId/messages/:messageId')
     deleteMessage(
         @Param('messageId') messageId: string,
         @Body() body: { senderId: string },
     ) {
-        return this.dmService.deleteMessage(messageId, body.senderId);
+        return this.presenter.deleteMessage(messageId, body.senderId);
     }
 }
