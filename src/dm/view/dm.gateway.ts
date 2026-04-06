@@ -1,17 +1,24 @@
 import { WebSocketGateway, WebSocketServer, SubscribeMessage, MessageBody } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { DmPresenter } from '../presenter/dm.presenter';
+import { ActivityService } from 'src/activity/activity.service';
+import { ActivityGateway } from 'src/activity/activity.gateway';
 
-/**
- * DM View (WebSocket) — socket interface only. No business logic.
- * Delegates everything to DmPresenter.
- */
+function toPreview(html: string, maxLen = 80): string {
+    const plain = html.replace(/<[^>]*>/g, '').trim();
+    return plain.length > maxLen ? plain.slice(0, maxLen) + '…' : plain;
+}
+
 @WebSocketGateway({ cors: true })
 export class DmGateway {
     @WebSocketServer()
     server: Server;
 
-    constructor(private readonly presenter: DmPresenter) {}
+    constructor(
+        private readonly presenter: DmPresenter,
+        private readonly activityService: ActivityService,
+        private readonly activityGateway: ActivityGateway,
+    ) {}
 
     @SubscribeMessage('join_dm')
     handleJoinDm(client: Socket, conversationId: string) {
@@ -23,10 +30,6 @@ export class DmGateway {
         client.leave(`dm:${conversationId}`);
     }
 
-    /**
-     * send_dm_message — handles both root DM messages and DM thread replies.
-     * Payload: { conversationId, senderId, content, parentId?, fileIds? }
-     */
     @SubscribeMessage('send_dm_message')
     async handleDmMessage(
         @MessageBody() payload: {
@@ -35,6 +38,7 @@ export class DmGateway {
             content: string;
             parentId?: string;
             fileIds?: string[];
+            workspaceId?: string;
         },
     ) {
         const message = await this.presenter.sendMessage(
@@ -46,12 +50,33 @@ export class DmGateway {
         );
 
         const room = `dm:${payload.conversationId}`;
+        const actor = message.sender;
+        const actorUsername: string = actor?.dispname || actor?.email || 'Someone';
+        const actorAvatar: string = actor?.avatar ?? '/uploads/avatar.png';
+        const preview = toPreview(payload.content ?? '');
 
         if (payload.parentId) {
             this.server.to(room).emit('new_dm_thread_message', message);
             const thread = await this.presenter.getThread(payload.parentId, payload.senderId);
             if (thread[0]) {
                 this.server.to(room).emit('dm_thread_updated', thread[0]);
+
+                // Activity: DM reply — notify root message sender
+                const rootSenderId: string = (thread[0] as any).sender?.id;
+                if (rootSenderId && rootSenderId !== payload.senderId) {
+                    const activity = await this.activityService.create({
+                        recipientId: rootSenderId,
+                        actorId: payload.senderId,
+                        actorUsername,
+                        actorAvatar,
+                        type: 'reply',
+                        messagePreview: preview,
+                        messageId: message.id,
+                        conversationId: payload.conversationId,
+                        workspaceId: payload.workspaceId,
+                    });
+                    this.activityGateway.emitToUser(rootSenderId, activity);
+                }
             }
         } else {
             this.server.to(room).emit('new_dm_message', message);
@@ -60,10 +85,19 @@ export class DmGateway {
         return message;
     }
 
-    /** toggle_dm_reaction — broadcasts dm_reaction_updated to the DM room */
     @SubscribeMessage('toggle_dm_reaction')
     handleDmReaction(
-        @MessageBody() payload: { conversationId: string; messageId: string; reactions: any[] },
+        @MessageBody() payload: {
+            conversationId: string;
+            messageId: string;
+            reactions: any[];
+            senderId?: string;
+            messageOwnerId?: string;
+            workspaceId?: string;
+            actorUsername?: string;
+            actorAvatar?: string;
+            emoji?: string;
+        },
     ) {
         this.server.to(`dm:${payload.conversationId}`).emit('dm_reaction_updated', {
             messageId: payload.messageId,
@@ -71,7 +105,6 @@ export class DmGateway {
         });
     }
 
-    /** dm_message_edit — broadcasts dmMessageEdited to the DM room */
     @SubscribeMessage('dm_message_edit')
     handleDmMessageEdit(
         @MessageBody() payload: { conversationId: string; messageId: string; content: string; updatedAt: string },
@@ -83,7 +116,6 @@ export class DmGateway {
         });
     }
 
-    /** dm_message_delete — broadcasts dmMessageDeleted (and dm_thread_updated if reply) */
     @SubscribeMessage('dm_message_delete')
     handleDmMessageDelete(
         @MessageBody() payload: { conversationId: string; messageId: string; updatedRoot?: any },

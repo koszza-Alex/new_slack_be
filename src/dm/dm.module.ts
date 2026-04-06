@@ -12,6 +12,7 @@ import { DmService } from './dm.service';
 import { DmPresenter } from './presenter/dm.presenter';
 import { DmController } from './view/dm.controller';
 import { DmGateway } from './view/dm.gateway';
+import { ActivityModule } from 'src/activity/activity.module';
 
 @Module({
     imports: [
@@ -25,6 +26,7 @@ import { DmGateway } from './view/dm.gateway';
             User,
             File,
         ]),
+        ActivityModule,
     ],
     controllers: [DmController],
     providers: [DmService, DmPresenter, DmGateway],

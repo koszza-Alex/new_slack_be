@@ -1,20 +1,8 @@
-// message.gateway.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserGateway } from './user.gateway';
-import { MessagePresenter } from './presenter/user.presenter';
 
 describe('UserGateway', () => {
     let gateway: UserGateway;
-    let presenter: MessagePresenter;
-
-    const mockPresenter = {
-        sendMessage: jest.fn(),
-    };
-
-    const mockClient = {
-        join: jest.fn(),
-        leave: jest.fn(),
-    };
 
     const mockServer = {
         to: jest.fn().mockReturnThis(),
@@ -23,19 +11,10 @@ describe('UserGateway', () => {
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                UserGateway,
-                {
-                    provide: MessagePresenter,
-                    useValue: mockPresenter,
-                },
-            ],
+            providers: [UserGateway],
         }).compile();
 
         gateway = module.get<UserGateway>(UserGateway);
-        presenter = module.get<MessagePresenter>(MessagePresenter);
-
-        // attach mocked server
         gateway.server = mockServer as any;
     });
 
@@ -43,41 +22,19 @@ describe('UserGateway', () => {
         jest.clearAllMocks();
     });
 
-    // ✅ join channel
-    it('should join channel', () => {
-        gateway.handleJoin(mockClient as any, 'room1');
-
-        expect(mockClient.join).toHaveBeenCalledWith('room1');
+    it('should be defined', () => {
+        expect(gateway).toBeDefined();
     });
 
-    // ✅ leave channel
-    it('should leave channel', () => {
-        gateway.handleLeave(mockClient as any, 'room1');
-
-        expect(mockClient.leave).toHaveBeenCalledWith('room1');
+    it('should emit user_presence on register_user', () => {
+        const mockClient = { id: 'socket1', handshake: { query: {} } } as any;
+        gateway.handleRegisterUser(mockClient, 'user-123');
+        expect(mockServer.emit).toHaveBeenCalledWith('user_presence', { userId: 'user-123', isOnline: true });
     });
 
-    // ✅ send message via websocket
-    it('should handle send_message and emit to room', async () => {
-        const payload = {
-            channelId: 'room1',
-            content: 'hello',
-        };
-
-        const savedMessage = { id: 1, ...payload };
-
-        mockPresenter.sendMessage.mockResolvedValue(savedMessage);
-
-        const result = await gateway.handleMessage(payload);
-
-        expect(presenter.sendMessage).toHaveBeenCalledWith(payload);
-
-        expect(mockServer.to).toHaveBeenCalledWith('room1');
-        expect(mockServer.emit).toHaveBeenCalledWith(
-            'new_message',
-            savedMessage,
-        );
-
-        expect(result).toEqual(savedMessage);
+    it('should emit updated_profile on profile:update', () => {
+        const payload = { id: 'user-123', dispname: 'Alice', avatar: '/uploads/a.png' };
+        gateway.handleProfileUpdate(payload);
+        expect(mockServer.emit).toHaveBeenCalledWith('updated_profile', payload);
     });
 });

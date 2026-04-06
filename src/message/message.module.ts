@@ -17,6 +17,7 @@ import { File } from './entities/file.entity';
 import { User } from 'src/user/entities/user.entity';
 import { Channel } from 'src/channel/entities/channel.entity';
 import { Workspace } from 'src/workspace/entities/workspace.entity';
+import { ActivityModule } from 'src/activity/activity.module';
 
 @Module({
     imports: [
@@ -29,6 +30,7 @@ import { Workspace } from 'src/workspace/entities/workspace.entity';
             Channel,
             Workspace,
         ]),
+        ActivityModule,
     ],
     controllers: [MessageController, FileController],
     providers: [
