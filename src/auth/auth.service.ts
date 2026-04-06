@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
@@ -111,21 +111,25 @@ export class AuthService {
 
     async generateToken(dto: generateTokenDto) {
       const { email, workspaceName } = dto;
-      console.log(email,workspaceName);
-      
+      console.log(email, workspaceName);
+
+      // Verify the user actually exists before issuing a token
+      const user = await this.userRepo.findOne({ where: { email } });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
       const payload = {
-        email: email,
-        workspaceName: workspaceName,
+        email: user.email,
+        workspaceName,
       };
-    
+
       const token = await this.jwtService.sign(payload, {
         secret: process.env.JWT_SECRET,
         expiresIn: '24h',
       });
-    
-      return {
-        token
-      };
+
+      return { token };
     }
 
     async getMe(email: string) {
@@ -133,11 +137,11 @@ export class AuthService {
         where: { email },
         relations: ['workspaces'],
       });
-    
+
       if (!user) {
-        throw new Error('User not found');
+        throw new UnauthorizedException('User not found — please sign in again');
       }
-    
+
       return user;
     }
 
