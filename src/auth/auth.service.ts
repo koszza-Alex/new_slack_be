@@ -80,12 +80,12 @@ export class AuthService {
         members:[user]
       });
     
-      await this.workspaceRepo.save(workspace);
+      const savedWorkspace = await this.workspaceRepo.save(workspace);
     
       // 4. Add user to workspace (ManyToMany)
       user.workspaces = user.workspaces
-        ? [...user.workspaces, workspace]
-        : [workspace];
+        ? [...user.workspaces, savedWorkspace]
+        : [savedWorkspace];
     
       // 5. Save user
       await this.userRepo.save(user);
@@ -93,18 +93,18 @@ export class AuthService {
       // 6. Generate JWT
       const payload = {
         email: user.email,
-        workspaceName: workspace.name,
+        workspaceName: savedWorkspace.name,
       };
     
       const token = await this.jwtService.sign(payload, {
-        secret: process.env.JWT_SECRET, // move to env later
+        secret: process.env.JWT_SECRET,
         expiresIn: '24h',
       });
   
       return {
         message: 'Registration successful',
         token,
-        workspace:workspace
+        workspace: savedWorkspace,
       };
      
     }

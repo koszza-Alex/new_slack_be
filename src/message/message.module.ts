@@ -20,25 +20,25 @@ import { Workspace } from 'src/workspace/entities/workspace.entity';
 import { ActivityModule } from 'src/activity/activity.module';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([
-            Message,
-            MessageReaction,
-            MessageReactionUser,
-            File,
-            User,
-            Channel,
-            Workspace,
-        ]),
-        ActivityModule,
-    ],
-    controllers: [MessageController, FileController],
-    providers: [
-        MessagePresenter,
-        MessageRepository,
-        MessageReactionRepository,
-        MessageGateway,
-    ],
-    exports: [MessagePresenter],
+  imports: [
+    TypeOrmModule.forFeature([
+      Message,
+      MessageReaction,
+      MessageReactionUser,
+      File,
+      User,
+      Channel,
+      Workspace,
+    ]),
+    ActivityModule,
+  ],
+  controllers: [MessageController, FileController],
+  providers: [
+    MessagePresenter,
+    MessageRepository,
+    MessageReactionRepository,
+    MessageGateway,
+  ],
+  exports: [MessagePresenter],
 })
 export class MessagesModule {}

@@ -10,37 +10,37 @@ import { ImportUserDto } from '../dto/import-user.dto';
  */
 @Injectable()
 export class UserPresenter {
-    constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) {}
 
-    create(dto: CreateUserDto) {
-        return this.userService.create(dto);
-    }
+  create(dto: CreateUserDto) {
+    return this.userService.create(dto);
+  }
 
-    findAll() {
-        return this.userService.findAll();
-    }
+  findAll() {
+    return this.userService.findAll();
+  }
 
-    countAll() {
-        return this.userService.countAll();
-    }
+  countAll() {
+    return this.userService.countAll();
+  }
 
-    findOne(id: string) {
-        return this.userService.findOne(id);
-    }
+  findOne(id: string) {
+    return this.userService.findOne(id);
+  }
 
-    update(id: number, dto: UpdateUserDto) {
-        return this.userService.update(id, dto);
-    }
+  update(id: number, dto: UpdateUserDto) {
+    return this.userService.update(id, dto);
+  }
 
-    remove(id: number) {
-        return this.userService.remove(id);
-    }
+  remove(id: number) {
+    return this.userService.remove(id);
+  }
 
-    import(dto: ImportUserDto) {
-        return this.userService.import(dto);
-    }
+  import(dto: ImportUserDto) {
+    return this.userService.import(dto);
+  }
 
-    updateProfile(userId: string, data: { dispname?: string; avatar?: string }) {
-        return this.userService.updateProfile(userId, data);
-    }
+  updateProfile(userId: string, data: { dispname?: string; avatar?: string }) {
+    return this.userService.updateProfile(userId, data);
+  }
 }
