@@ -9,6 +9,12 @@ function toPreview(html: string, maxLen = 80): string {
     return plain.length > maxLen ? plain.slice(0, maxLen) + '…' : plain;
 }
 
+/** Extract all @userId mentions from HTML message content */
+function extractMentions(content: string): string[] {
+    const matches = content.match(/data-id="([^"]+)"/g) ?? [];
+    return matches.map((m) => m.replace(/data-id="|"/g, ''));
+}
+
 @WebSocketGateway({ cors: true })
 export class DmGateway {
     @WebSocketServer()
@@ -80,6 +86,24 @@ export class DmGateway {
             }
         } else {
             this.server.to(room).emit('new_dm_message', message);
+
+            // Activity: DM mentions — notify each mentioned user
+            const mentionedIds = extractMentions(payload.content ?? '');
+            for (const recipientId of mentionedIds) {
+                if (recipientId === payload.senderId) continue;
+                const activity = await this.activityService.create({
+                    recipientId,
+                    actorId: payload.senderId,
+                    actorUsername,
+                    actorAvatar,
+                    type: 'mention',
+                    messagePreview: preview,
+                    messageId: message.id,
+                    conversationId: payload.conversationId,
+                    workspaceId: payload.workspaceId,
+                });
+                this.activityGateway.emitToUser(recipientId, activity);
+            }
         }
 
         return message;
